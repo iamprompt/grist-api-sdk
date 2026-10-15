@@ -196,3 +196,83 @@ export interface RecordListOptions {
 export interface RecordCreateResponse {
   records: { id: number }[];
 }
+
+/**
+ * File input payload for uploading attachments.
+ */
+export interface UploadFileInput {
+  filename: string;
+  data: Uint8Array | Blob;
+  contentType?: string;
+}
+
+/**
+ * Metadata for a document attachment.
+ */
+export interface AttachmentMetadata {
+  id?: number;
+  fileName?: string;
+  fileSize?: number;
+  timeUploaded?: string;
+  mimetype?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Configuration fields for a document webhook.
+ */
+export interface WebhookFields {
+  name?: string;
+  memo?: string;
+  url: string;
+  enabled?: boolean;
+  eventTypes: ('add' | 'update' | string)[];
+  tableId: string;
+  isReadyColumn?: string | null;
+  [key: string]: unknown;
+}
+
+/**
+ * Summary information for a document webhook.
+ */
+export interface WebhookSummary {
+  id: string;
+  fields?: WebhookFields;
+  name?: string;
+  url?: string;
+  tableId?: string;
+  eventTypes?: string[];
+  enabled?: boolean;
+  isReadyColumn?: string | null;
+  [key: string]: unknown;
+}
+
+/**
+ * Payload for registering or subscribing a new webhook.
+ */
+export interface CreateWebhookPayload {
+  fields?: WebhookFields;
+  name?: string;
+  memo?: string;
+  url?: string;
+  enabled?: boolean;
+  eventTypes?: ('add' | 'update' | string)[];
+  tableId?: string;
+  isReadyColumn?: string | null;
+  [key: string]: unknown;
+}
+
+/**
+ * Payload for updating an existing webhook.
+ */
+export interface UpdateWebhookPayload {
+  fields?: Partial<WebhookFields>;
+  name?: string;
+  memo?: string;
+  url?: string;
+  enabled?: boolean;
+  eventTypes?: ('add' | 'update' | string)[];
+  tableId?: string;
+  isReadyColumn?: string | null;
+  [key: string]: unknown;
+}
