@@ -185,6 +185,10 @@ export interface RecordListOptions {
    */
   limit?: number;
   /**
+   * Number of records to skip for pagination.
+   */
+  offset?: number;
+  /**
    * Whether to include hidden rows or columns.
    */
   hidden?: boolean;

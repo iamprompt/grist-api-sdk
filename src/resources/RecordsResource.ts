@@ -40,6 +40,9 @@ export class RecordsResource {
     if (options?.limit !== undefined) {
       params.limit = options.limit;
     }
+    if (options?.offset !== undefined) {
+      params.offset = options.offset;
+    }
     if (options?.hidden !== undefined) {
       params.hidden = options.hidden;
     }
@@ -129,7 +132,9 @@ export class RecordsResource {
   async upsert<TFields = Record<string, unknown>>(
     docId: string,
     tableId: string,
-    records: { fields: TFields }[],
+    records:
+      | { fields?: TFields; require?: Record<string, unknown> }[]
+      | { fields: TFields }[],
     options?: { onMany?: string }
   ): Promise<void> {
     const encodedDocId = encodeURIComponent(docId);
