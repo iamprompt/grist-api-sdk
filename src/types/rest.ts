@@ -106,3 +106,93 @@ export interface DeleteOptions {
    */
   permanent?: boolean;
 }
+
+/**
+ * Detailed column configuration and attributes.
+ */
+export interface ColumnFields {
+  label?: string;
+  type?: string;
+  isFormula?: boolean;
+  formula?: string;
+  widgetOptions?: string | Record<string, unknown>;
+  untieColIdFromLabel?: boolean;
+  summarySourceCol?: number;
+  colRef?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Summary information for a table column.
+ */
+export interface ColumnSummary {
+  id: string;
+  fields?: ColumnFields;
+  [key: string]: unknown;
+}
+
+/**
+ * Payload for creating or updating a table column.
+ */
+export interface ColumnPayload {
+  id?: string;
+  fields?: ColumnFields;
+  [key: string]: unknown;
+}
+
+/**
+ * Summary information for a document table.
+ */
+export interface TableSummary {
+  id: string;
+  fields?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/**
+ * Payload for defining a table when creating tables.
+ */
+export interface TablePayload {
+  id?: string;
+  columns?: ColumnPayload[];
+  [key: string]: unknown;
+}
+
+/**
+ * Envelope containing a single record ID and its typed fields.
+ */
+export interface RecordEnvelope<TFields = Record<string, unknown>> {
+  id: number;
+  fields: TFields;
+  [key: string]: unknown;
+}
+
+/**
+ * Query options for filtering, sorting, and paginating table records.
+ */
+export interface RecordListOptions {
+  /**
+   * Filter matching records. Can be a record of column IDs to allowed values,
+   * or a pre-serialized JSON filter string.
+   */
+  filter?: Record<string, unknown[]> | string;
+  /**
+   * Sort expression or list of column IDs. Prefix with '-' for descending order.
+   */
+  sort?: string | string[];
+  /**
+   * Maximum number of records to return.
+   */
+  limit?: number;
+  /**
+   * Whether to include hidden rows or columns.
+   */
+  hidden?: boolean;
+}
+
+/**
+ * Response returned after creating records in a table.
+ */
+export interface RecordCreateResponse {
+  records: { id: number }[];
+}
