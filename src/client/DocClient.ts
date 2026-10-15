@@ -147,7 +147,7 @@ export class DocClient {
   /**
    * Returns a scoped TableClient for interacting with a specific table's records and columns.
    */
-  table<T extends Record<string, any> = Record<string, unknown>>(tableId: string): TableClient<T> {
+  table<T extends object = Record<string, unknown>>(tableId: string): TableClient<T> {
     return new TableClient<T>(this.transport, this.id, tableId, {
       records: this.recordsResource,
       columns: this.columnsResource,

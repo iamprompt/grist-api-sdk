@@ -352,6 +352,22 @@ describe('GristClient Fluent API', () => {
       expect(secondCallUrl.searchParams.get('offset')).toBe('2');
     });
 
+    it('guards against non-positive batchSize in iterate by clamping to at least 1', async () => {
+      mockFetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ records: [{ id: 1, fields: { Name: 'Item 1', Price: 10 } }] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+      const grist = new GristClient({ fetch: mockFetch });
+      const generator = grist.doc('doc1').table<Product>('Products').records.iterate({ batchSize: 0 });
+      await generator.next();
+
+      const calledUrl = new URL(mockFetch.mock.calls[0]![0] as string);
+      expect(calledUrl.searchParams.get('limit')).toBe('1');
+    });
+
     it('handles Review Focus 2: URI-encodes table IDs with spaces and symbols', async () => {
       mockFetch.mockResolvedValue(
         new Response(JSON.stringify({ records: [] }), {
@@ -584,9 +600,14 @@ describe('GristClient Fluent API', () => {
       expect(doc.id).toBe('plainDocId123');
     });
 
-    it('throws GristValidationError on invalid doc URL', () => {
+    it('throws GristValidationError on invalid doc URL or reserved path segments', () => {
       expect(() => GristClient.fromDocUrl('')).toThrow(GristValidationError);
       expect(() => GristClient.fromDocUrl('https://docs.getgrist.com/')).toThrow(GristValidationError);
+      expect(() => GristClient.fromDocUrl('https://docs.getgrist.com/doc/')).toThrow(GristValidationError);
+      expect(() => GristClient.fromDocUrl('https://docs.getgrist.com/o/myorg')).toThrow(GristValidationError);
+      expect(() => GristClient.fromDocUrl('https://docs.getgrist.com/o/myorg/doc')).toThrow(GristValidationError);
+      expect(() => GristClient.fromDocUrl('doc')).toThrow(GristValidationError);
+      expect(() => GristClient.fromDocUrl('o')).toThrow(GristValidationError);
     });
   });
 });

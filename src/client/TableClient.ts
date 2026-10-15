@@ -7,7 +7,7 @@ import { RecordManager } from './RecordManager';
 /**
  * Scoped client for table operations in a specific Grist document.
  */
-export class TableClient<T extends Record<string, any> = Record<string, unknown>> {
+export class TableClient<T extends object = Record<string, unknown>> {
   readonly tableId: string;
   readonly records: RecordManager<T>;
   readonly columns: {

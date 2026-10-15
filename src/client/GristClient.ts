@@ -25,10 +25,15 @@ export function parseDocUrl(urlStr: string): { docId: string; serverUrl: string 
     throw new GristValidationError('A valid Grist document URL or ID must be provided');
   }
 
+  const reservedWords = new Set(['o', 'doc', 'd', 'api']);
+
   // If no protocol is provided, check whether it's a bare docId or a URL without scheme
   if (!trimmed.includes('://')) {
     if (trimmed.includes('/')) {
       return parseDocUrl(`https://${trimmed}`);
+    }
+    if (reservedWords.has(trimmed)) {
+      throw new GristValidationError(`Invalid Grist document ID: "${trimmed}" is a reserved path`);
     }
     return {
       docId: trimmed,
@@ -48,29 +53,33 @@ export function parseDocUrl(urlStr: string): { docId: string; serverUrl: string 
     throw new GristValidationError(`Invalid Grist document URL (missing document ID): ${urlStr}`);
   }
 
+  let docId: string | undefined;
+  let serverUrl = parsed.origin;
+
   // Handle /o/{org}/doc/{docId} or /o/{org}/d/{docId} or /o/{org}/{docId}
-  if (parts[0] === 'o' && parts[1]) {
+  if (parts[0] === 'o') {
+    if (!parts[1]) {
+      throw new GristValidationError(`Invalid Grist document URL (missing organization and document ID): ${urlStr}`);
+    }
     const org = parts[1];
-    const serverUrl = `${parsed.origin}/o/${org}`;
-    if ((parts[2] === 'doc' || parts[2] === 'd') && parts[3]) {
-      return { docId: parts[3], serverUrl };
+    serverUrl = `${parsed.origin}/o/${org}`;
+
+    if (parts[2] === 'doc' || parts[2] === 'd') {
+      docId = parts[3];
+    } else {
+      docId = parts[2];
     }
-    if (parts[2]) {
-      return { docId: parts[2], serverUrl };
-    }
+  } else if (parts[0] === 'doc' || parts[0] === 'd') {
+    docId = parts[1];
+  } else {
+    docId = parts[0];
   }
 
-  // Handle /doc/{docId} or /d/{docId}
-  if ((parts[0] === 'doc' || parts[0] === 'd') && parts[1]) {
-    return { docId: parts[1], serverUrl: parsed.origin };
-  }
-
-  // Handle /{docId} or /{docId}/{docSlug}
-  const docId = parts[0];
-  if (!docId) {
+  if (!docId || reservedWords.has(docId)) {
     throw new GristValidationError(`Invalid Grist document URL (missing document ID): ${urlStr}`);
   }
-  return { docId, serverUrl: parsed.origin };
+
+  return { docId, serverUrl };
 }
 
 /**

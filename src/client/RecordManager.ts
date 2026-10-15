@@ -6,12 +6,12 @@ import { RecordEnvelope } from '../types/rest';
 /**
  * Record with Grist row ID preserved as a numeric property `id`.
  */
-export type RecordWithId<T> = Omit<T, 'id'> & { id: number };
+export type RecordWithId<T extends object = Record<string, unknown>> = Omit<T, 'id'> & { id: number };
 
 /**
  * Query and presentation options for RecordManager.list.
  */
-export interface RecordListFluentOptions<T> {
+export interface RecordListFluentOptions<T extends object = Record<string, unknown>> {
   filter?: Partial<Record<keyof T | string, unknown[]>> | Record<string, unknown[]> | string;
   sort?: (keyof T | string)[] | string;
   limit?: number;
@@ -23,7 +23,7 @@ export interface RecordListFluentOptions<T> {
 /**
  * Options for RecordManager.upsert.
  */
-export interface RecordUpsertOptions<T> {
+export interface RecordUpsertOptions<T extends object = Record<string, unknown>> {
   keyCols: (keyof T | string)[];
   onMany?: 'first' | 'none' | 'all' | string;
 }
@@ -31,7 +31,7 @@ export interface RecordUpsertOptions<T> {
 /**
  * Options for RecordManager.iterate.
  */
-export interface RecordIterateOptions<T> {
+export interface RecordIterateOptions<T extends object = Record<string, unknown>> {
   batchSize?: number;
   filter?: Partial<Record<keyof T | string, unknown[]>> | Record<string, unknown[]> | string;
   sort?: (keyof T | string)[] | string;
@@ -43,7 +43,7 @@ export interface RecordIterateOptions<T> {
  *
  * Preserves the numeric row ID as `id` even if user fields include an `id` column.
  */
-export function flattenRecord<T extends Record<string, any>>(
+export function flattenRecord<T extends object = Record<string, unknown>>(
   record: RecordEnvelope<T>
 ): RecordWithId<T> {
   return {
@@ -55,7 +55,7 @@ export function flattenRecord<T extends Record<string, any>>(
 /**
  * High-level record manager providing CRUD, batch upsert, and auto-pagination.
  */
-export class RecordManager<T extends Record<string, any> = Record<string, unknown>> {
+export class RecordManager<T extends object = Record<string, unknown>> {
   constructor(
     _transport: HttpTransport,
     private readonly docId: string,
@@ -199,7 +199,7 @@ export class RecordManager<T extends Record<string, any> = Record<string, unknow
    * Auto-paginating async generator yielding records row by row across pages.
    */
   async *iterate(options?: RecordIterateOptions<T>): AsyncIterableIterator<RecordWithId<T>> {
-    const batchSize = options?.batchSize ?? 100;
+    const batchSize = Math.max(1, options?.batchSize ?? 100);
     let offset = 0;
 
     while (true) {
