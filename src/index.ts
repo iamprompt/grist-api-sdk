@@ -7,6 +7,7 @@ export { TableClient } from './client/TableClient';
 export {
   RecordManager,
   flattenRecord,
+  QueryBuilder,
   type RecordWithId,
   type RecordListFluentOptions,
   type RecordUpsertOptions,

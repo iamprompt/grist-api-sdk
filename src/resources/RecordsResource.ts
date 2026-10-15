@@ -135,7 +135,7 @@ export class RecordsResource {
     records:
       | { fields?: TFields; require?: Record<string, unknown> }[]
       | { fields: TFields }[],
-    options?: { onMany?: string }
+    options?: { onMany?: ('first' | 'none' | 'all') | (string & {}) }
   ): Promise<void> {
     const encodedDocId = encodeURIComponent(docId);
     const encodedTableId = encodeURIComponent(tableId);

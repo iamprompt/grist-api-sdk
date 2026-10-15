@@ -1,7 +1,7 @@
 /**
  * Access levels in Grist organizations, workspaces, and documents.
  */
-export type AccessRole = 'owners' | 'editors' | 'viewers' | string;
+export type AccessRole = 'owners' | 'editors' | 'viewers' | (string & {});
 
 /**
  * Summary of a Grist user.
@@ -230,7 +230,7 @@ export interface WebhookFields {
   memo?: string;
   url: string;
   enabled?: boolean;
-  eventTypes: ('add' | 'update' | string)[];
+  eventTypes: (('add' | 'update') | (string & {}))[];
   tableId: string;
   isReadyColumn?: string | null;
   [key: string]: unknown;
@@ -260,7 +260,7 @@ export interface CreateWebhookPayload {
   memo?: string;
   url?: string;
   enabled?: boolean;
-  eventTypes?: ('add' | 'update' | string)[];
+  eventTypes?: (('add' | 'update') | (string & {}))[];
   tableId?: string;
   isReadyColumn?: string | null;
   [key: string]: unknown;
@@ -275,7 +275,7 @@ export interface UpdateWebhookPayload {
   memo?: string;
   url?: string;
   enabled?: boolean;
-  eventTypes?: ('add' | 'update' | string)[];
+  eventTypes?: (('add' | 'update') | (string & {}))[];
   tableId?: string;
   isReadyColumn?: string | null;
   [key: string]: unknown;

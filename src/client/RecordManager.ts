@@ -2,6 +2,9 @@ import { GristNotFoundError } from '../errors';
 import { RecordsResource } from '../resources/RecordsResource';
 import { HttpTransport } from '../transport/HttpTransport';
 import { RecordEnvelope } from '../types/rest';
+import { QueryBuilder } from './QueryBuilder';
+
+export { QueryBuilder } from './QueryBuilder';
 
 /**
  * Record with Grist row ID preserved as a numeric property `id`.
@@ -25,7 +28,7 @@ export interface RecordListFluentOptions<T extends object = Record<string, unkno
  */
 export interface RecordUpsertOptions<T extends object = Record<string, unknown>> {
   keyCols: (keyof T | string)[];
-  onMany?: 'first' | 'none' | 'all' | string;
+  onMany?: ('first' | 'none' | 'all') | (string & {});
 }
 
 /**
@@ -140,11 +143,26 @@ export class RecordManager<T extends object = Record<string, unknown>> {
   }
 
   /**
-   * Updates an existing record by row ID with partial fields.
+   * Updates an existing record by row ID with partial fields, or batch updates multiple records.
+   *
+   * Safely no-ops without making HTTP requests if an empty array is provided.
    */
-  async update(recordId: number, data: Partial<T>): Promise<void> {
+  async update(recordId: number, data: Partial<T>): Promise<void>;
+  async update(records: Array<{ id: number; fields: Partial<T> }>): Promise<void>;
+  async update(
+    recordIdOrRecords: number | Array<{ id: number; fields: Partial<T> }>,
+    data?: Partial<T>
+  ): Promise<void> {
+    if (Array.isArray(recordIdOrRecords)) {
+      if (recordIdOrRecords.length === 0) {
+        return;
+      }
+      await this.recordsResource.update<T>(this.docId, this.tableId, recordIdOrRecords);
+      return;
+    }
+
     await this.recordsResource.update<T>(this.docId, this.tableId, [
-      { id: recordId, fields: data },
+      { id: recordIdOrRecords, fields: data ?? {} },
     ]);
   }
 
@@ -221,5 +239,12 @@ export class RecordManager<T extends object = Record<string, unknown>> {
 
       offset += records.length;
     }
+  }
+
+  /**
+   * Creates a chainable query builder for filtering, sorting, and pagination.
+   */
+  query(): QueryBuilder<T> {
+    return new QueryBuilder<T>(this);
   }
 }

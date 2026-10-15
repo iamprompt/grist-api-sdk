@@ -49,8 +49,8 @@ describe("Typegen Generator", () => {
       expect(mapGristTypeToTs("ManualSortPos")).toBe("number");
       expect(mapGristTypeToTs("Bool")).toBe("boolean");
       expect(mapGristTypeToTs("Boolean")).toBe("boolean");
-      expect(mapGristTypeToTs("Date")).toBe("number");
-      expect(mapGristTypeToTs("Date:YYYY-MM-DD")).toBe("number");
+      expect(mapGristTypeToTs("Date")).toBe("string | number");
+      expect(mapGristTypeToTs("Date:YYYY-MM-DD")).toBe("string | number");
       expect(mapGristTypeToTs("DateTime")).toBe("number");
       expect(mapGristTypeToTs("DateTime:America/New_York")).toBe("number");
       expect(mapGristTypeToTs("Choice")).toBe("string");

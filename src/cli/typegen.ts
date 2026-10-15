@@ -43,13 +43,11 @@ export function mapGristTypeToTs(gristType?: string): string {
   if (type === 'Bool' || type === 'Boolean') {
     return 'boolean';
   }
-  if (
-    type === 'Date' ||
-    type.startsWith('Date:') ||
-    type === 'DateTime' ||
-    type.startsWith('DateTime:')
-  ) {
+  if (type === 'DateTime' || type.startsWith('DateTime:')) {
     return 'number';
+  }
+  if (type === 'Date' || type.startsWith('Date:')) {
+    return 'string | number';
   }
   if (type === 'Choice') {
     return 'string';

@@ -228,6 +228,37 @@ describe('GristClient Fluent API', () => {
       );
     });
 
+    it('batch updates multiple records with array of { id, fields }', async () => {
+      mockFetch.mockResolvedValue(
+        new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      );
+
+      const grist = new GristClient({ fetch: mockFetch });
+      await grist.doc('doc1').table<Product>('Products').records.update([
+        { id: 142, fields: { Price: 99.99 } },
+        { id: 143, fields: { Stock: 5 } },
+      ]);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/docs/doc1/tables/Products/records'),
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({
+            records: [
+              { id: 142, fields: { Price: 99.99 } },
+              { id: 143, fields: { Stock: 5 } },
+            ],
+          }),
+        })
+      );
+    });
+
+    it('safely no-ops on empty array for batch update', async () => {
+      const grist = new GristClient({ fetch: mockFetch });
+      await grist.doc('doc1').table<Product>('Products').records.update([]);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
     it('safely no-ops on empty array for batch upsert (Review Focus 4)', async () => {
       const grist = new GristClient({ fetch: mockFetch });
       await grist.doc('doc1').table<Product>('Products').records.upsert([], { keyCols: ['Name'] });

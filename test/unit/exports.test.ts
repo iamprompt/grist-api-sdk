@@ -22,6 +22,7 @@ describe('Public API Exports', () => {
     expect(GristSDK.DocClient).toBeDefined();
     expect(GristSDK.TableClient).toBeDefined();
     expect(GristSDK.RecordManager).toBeDefined();
+    expect(GristSDK.QueryBuilder).toBeDefined();
     expect(GristSDK.flattenRecord).toBeDefined();
     expect(GristSDK.parseDocUrl).toBeDefined();
 
