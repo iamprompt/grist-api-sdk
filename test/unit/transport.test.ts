@@ -89,6 +89,21 @@ describe('HttpTransport', () => {
       expect(resolved.serverUrl).toBe('https://explicit-server.example.com');
     });
 
+    it('strips redundant Bearer prefix in apiKey without duplicating', async () => {
+      let capturedHeaders: HeadersInit | undefined;
+      const mockFetch = vi.fn().mockImplementation(async (_url, init) => {
+        capturedHeaders = init?.headers;
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      });
+
+      const transport = new HttpTransport({ apiKey: 'Bearer custom-token', fetch: mockFetch });
+      await transport.request('/test');
+      expect((capturedHeaders as Record<string, string>)['Authorization']).toBe('Bearer custom-token');
+    });
+
     it('joins URLs correctly whether path starts with /api or not', async () => {
       let capturedUrls: string[] = [];
       const mockFetch = vi.fn().mockImplementation(async (url) => {
@@ -104,10 +119,12 @@ describe('HttpTransport', () => {
       await transport.request('/orgs');
       await transport.request('docs/doc123');
       await transport.request('/api/workspaces/42');
+      await transport.request('/apikeys');
 
       expect(capturedUrls[0]).toBe('https://docs.getgrist.com/api/orgs');
       expect(capturedUrls[1]).toBe('https://docs.getgrist.com/api/docs/doc123');
       expect(capturedUrls[2]).toBe('https://docs.getgrist.com/api/workspaces/42');
+      expect(capturedUrls[3]).toBe('https://docs.getgrist.com/api/apikeys');
     });
 
     it('appends query parameters including primitives, arrays, and encoded values', async () => {
@@ -261,6 +278,30 @@ describe('HttpTransport', () => {
       expect(result).toBeUndefined();
     });
 
+    it('does not retry aborted requests and rethrows immediately', async () => {
+      let callCount = 0;
+      const controller = new AbortController();
+      controller.abort();
+
+      const mockFetch = vi.fn().mockImplementation(async () => {
+        callCount++;
+        const abortErr = new Error('The operation was aborted');
+        abortErr.name = 'AbortError';
+        throw abortErr;
+      });
+
+      const transport = new HttpTransport({
+        fetch: mockFetch,
+        retry: { maxRetries: 3, baseDelayMs: 10 },
+      });
+
+      await expect(
+        transport.request('/test', { signal: controller.signal })
+      ).rejects.toThrow('The operation was aborted');
+
+      expect(callCount).toBe(1);
+    });
+
     it('supports requestRaw to obtain raw Response', async () => {
       const mockFetch = vi.fn().mockResolvedValue(
         new Response('raw body content', { status: 200, headers: { 'Content-Type': 'text/plain' } })
@@ -278,6 +319,13 @@ describe('HttpTransport', () => {
       const error = new GristRateLimitError('Rate limited', 429, undefined, 3);
       const delay = handler.calculateDelay(error, 0);
       expect(delay).toBe(3000);
+    });
+
+    it('bounds retryAfterSeconds to maxDelayMs', () => {
+      const handler = new RetryHandler({ baseDelayMs: 100, maxDelayMs: 5000 });
+      const error = new GristRateLimitError('Rate limited', 429, undefined, 60);
+      const delay = handler.calculateDelay(error, 0);
+      expect(delay).toBe(5000);
     });
 
     it('safely handles missing, invalid, or NaN retryAfter without producing NaN delay', () => {
@@ -311,6 +359,11 @@ describe('HttpTransport', () => {
       // Non-retryable
       expect(handler.shouldRetry(new GristAuthError('401', 401), 0)).toBe(false);
       expect(handler.shouldRetry(new GristNotFoundError('404', 404), 0)).toBe(false);
+
+      // AbortError non-retryable
+      const abortError = new Error('The operation was aborted');
+      abortError.name = 'AbortError';
+      expect(handler.shouldRetry(abortError, 0)).toBe(false);
 
       // Max retries exceeded
       expect(handler.shouldRetry(new GristRateLimitError('Rate limit', 429), 2)).toBe(false);

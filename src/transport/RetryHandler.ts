@@ -42,6 +42,14 @@ export class RetryHandler {
       return false;
     }
 
+    // Do not retry explicitly aborted requests
+    if (
+      (error as Error)?.name === 'AbortError' ||
+      (error instanceof GristNetworkError && (error.cause as Error)?.name === 'AbortError')
+    ) {
+      return false;
+    }
+
     if (error instanceof GristRateLimitError) {
       return true;
     }
@@ -66,21 +74,22 @@ export class RetryHandler {
   /**
    * Calculates the sleep delay in milliseconds before the next retry attempt.
    *
-   * Honors parsed retryAfterSeconds from 429 rate limit errors when valid.
-   * Otherwise uses exponential backoff with jitter.
+   * Honors parsed retryAfterSeconds from 429 rate limit errors when valid,
+   * bounded by maxDelayMs. Otherwise uses exponential backoff with jitter.
    * Guarantees no NaN, finite, and non-negative delays.
    */
   calculateDelay(error: unknown, attempt: number): number {
+    const safeMax = Number.isFinite(this.maxDelayMs) && this.maxDelayMs >= 0 ? this.maxDelayMs : 30000;
+
     if (error instanceof GristRateLimitError) {
       const retryAfter = error.retryAfterSeconds;
       if (typeof retryAfter === 'number' && Number.isFinite(retryAfter) && retryAfter >= 0) {
-        return Math.round(retryAfter * 1000);
+        return Math.min(safeMax, Math.round(retryAfter * 1000));
       }
     }
 
     const safeAttempt = Number.isFinite(attempt) && attempt >= 0 ? attempt : 0;
     const safeBase = Number.isFinite(this.baseDelayMs) && this.baseDelayMs >= 0 ? this.baseDelayMs : 1000;
-    const safeMax = Number.isFinite(this.maxDelayMs) && this.maxDelayMs >= 0 ? this.maxDelayMs : 30000;
 
     // Exponential backoff: base * 2^attempt
     const expBackoff = Math.min(safeMax, safeBase * Math.pow(2, safeAttempt));

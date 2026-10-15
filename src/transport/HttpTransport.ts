@@ -41,7 +41,8 @@ export class HttpTransport {
       url = new URL(path);
     } else {
       const cleanPath = path.startsWith('/') ? path : `/${path}`;
-      const apiPath = cleanPath.startsWith('/api') ? cleanPath : `/api${cleanPath}`;
+      const isApiPath = cleanPath === '/api' || cleanPath.startsWith('/api/');
+      const apiPath = isApiPath ? cleanPath : `/api${cleanPath}`;
       url = new URL(`${this.config.serverUrl}${apiPath}`);
     }
 
@@ -101,7 +102,8 @@ export class HttpTransport {
 
     // 3. Authorization Bearer token (if not already set)
     if (this.config.apiKey && !hasHeader(headers, 'Authorization')) {
-      headers['Authorization'] = `Bearer ${this.config.apiKey}`;
+      const cleanKey = this.config.apiKey.replace(/^Bearer\s+/i, '');
+      headers['Authorization'] = `Bearer ${cleanKey}`;
     }
 
     // 4. Content-Type header
@@ -143,6 +145,13 @@ export class HttpTransport {
         });
       } catch (err) {
         if (err instanceof GristError) {
+          throw err;
+        }
+        // Do not wrap or retry explicitly aborted requests
+        const isAbort =
+          (err as Error)?.name === 'AbortError' ||
+          Boolean(initOptions.signal?.aborted);
+        if (isAbort) {
           throw err;
         }
         throw new GristNetworkError(
