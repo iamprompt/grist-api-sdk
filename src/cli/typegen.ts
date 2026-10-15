@@ -37,7 +37,7 @@ export function mapGristTypeToTs(gristType?: string): string {
   if (type === 'Text' || type === 'String') {
     return 'string';
   }
-  if (type === 'Numeric' || type === 'Int' || type === 'Integer') {
+  if (type === 'Numeric' || type === 'Int' || type === 'Integer' || type === 'ManualSortPos') {
     return 'number';
   }
   if (type === 'Bool' || type === 'Boolean') {

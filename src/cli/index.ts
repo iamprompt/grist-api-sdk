@@ -88,9 +88,10 @@ export async function runCli(
     typeof values['api-key'] === 'string'
       ? values['api-key']
       : process.env.GRIST_API_KEY;
-  const rawServer =
-    typeof values.server === 'string' ? values.server : process.env.GRIST_SERVER;
-  const serverUrl = rawServer || parsedServerUrl;
+  const explicitServer =
+    typeof values.server === 'string' ? values.server : undefined;
+  const serverUrl =
+    explicitServer || parsedServerUrl || process.env.GRIST_SERVER;
 
   const client =
     options?.client ??

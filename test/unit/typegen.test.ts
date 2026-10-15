@@ -46,6 +46,7 @@ describe("Typegen Generator", () => {
       expect(mapGristTypeToTs("Numeric")).toBe("number");
       expect(mapGristTypeToTs("Int")).toBe("number");
       expect(mapGristTypeToTs("Integer")).toBe("number");
+      expect(mapGristTypeToTs("ManualSortPos")).toBe("number");
       expect(mapGristTypeToTs("Bool")).toBe("boolean");
       expect(mapGristTypeToTs("Boolean")).toBe("boolean");
       expect(mapGristTypeToTs("Date")).toBe("number");
@@ -294,12 +295,13 @@ describe("Typegen Generator", () => {
 
     it("extracts doc ID and team server URL when doc URL is provided", async () => {
       const originalFetch = globalThis.fetch;
-      globalThis.fetch = vi.fn().mockResolvedValue(
+      const mockFetch = vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ tables: [] }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         })
       );
+      globalThis.fetch = mockFetch;
 
       try {
         await runCli([
@@ -310,6 +312,73 @@ describe("Typegen Generator", () => {
         ], {
           stdout: () => {},
         });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "https://myteam.getgrist.com/o/myteam/api/docs/doc12345/tables",
+          expect.anything()
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("prioritizes URL-extracted team server over ambient GRIST_SERVER", async () => {
+      process.env.GRIST_SERVER = "https://ambient.getgrist.com";
+
+      const originalFetch = globalThis.fetch;
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ tables: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+      globalThis.fetch = mockFetch;
+
+      try {
+        await runCli([
+          "--doc",
+          "https://myteam.getgrist.com/o/myteam/doc12345/My-Project",
+          "--out",
+          "-",
+        ], {
+          stdout: () => {},
+        });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "https://myteam.getgrist.com/o/myteam/api/docs/doc12345/tables",
+          expect.anything()
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("prioritizes explicit --server flag over URL-extracted team server", async () => {
+      const originalFetch = globalThis.fetch;
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ tables: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+      globalThis.fetch = mockFetch;
+
+      try {
+        await runCli([
+          "--doc",
+          "https://myteam.getgrist.com/o/myteam/doc12345/My-Project",
+          "--server",
+          "https://override.getgrist.com",
+          "--out",
+          "-",
+        ], {
+          stdout: () => {},
+        });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          "https://override.getgrist.com/api/docs/doc12345/tables",
+          expect.anything()
+        );
       } finally {
         globalThis.fetch = originalFetch;
       }
