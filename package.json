@@ -19,7 +19,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "scripts": {
     "build": "tsup",
@@ -42,5 +43,9 @@
     "tsup": "^9.0.0",
     "typescript": "^6.0.3",
     "vitest": "^5.0.4"
+  },
+  "bin": {
+    "grist-sdk": "./bin/grist-sdk.js",
+    "grist-typegen": "./bin/grist-sdk.js"
   }
 }
