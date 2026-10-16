@@ -14,12 +14,13 @@ import {
   UploadFileInput,
   WebhookSummary,
 } from '../types/rest';
+import { DefaultGristTables } from '../types/schema';
 import { TableClient } from './TableClient';
 
 /**
  * High-level document client for table, SQL, attachment, and webhook operations.
  */
-export class DocClient {
+export class DocClient<TTables extends object = DefaultGristTables> {
   readonly id: string;
 
   /**
@@ -146,9 +147,14 @@ export class DocClient {
 
   /**
    * Returns a scoped TableClient for interacting with a specific table's records and columns.
+   * If a document schema is registered or provided, tableId is type-checked and row types are inferred automatically without generic brackets.
    */
-  table<T extends object = Record<string, unknown>>(tableId: string): TableClient<T> {
-    return new TableClient<T>(this.transport, this.id, tableId, {
+  table<K extends keyof TTables & string>(
+    tableId: K
+  ): TableClient<TTables[K] extends object ? TTables[K] : Record<string, unknown>>;
+  table<T extends object = Record<string, unknown>>(tableId: string): TableClient<T>;
+  table(tableId: string): TableClient<any> {
+    return new TableClient(this.transport, this.id, tableId, {
       records: this.recordsResource,
       columns: this.columnsResource,
     });

@@ -37,6 +37,9 @@ describe("Typegen Generator", () => {
     expect(output).toContain("Tags: string[];");
     expect(output).toContain("export interface GristTables {");
     expect(output).toContain("Users: UsersRow;");
+    expect(output).toContain("declare module 'grist-api-sdk' {");
+    expect(output).toContain("interface RegisterGristTables {");
+    expect(output).toContain("tables: GristTables;");
   });
 
   describe("mapGristTypeToTs", () => {

@@ -10,6 +10,7 @@ import { WebhooksResource } from '../resources/WebhooksResource';
 import { WorkspacesResource } from '../resources/WorkspacesResource';
 import { HttpTransport } from '../transport/HttpTransport';
 import { DEFAULT_SERVER_URL, GristClientConfig } from '../types/config';
+import { DefaultGristTables } from '../types/schema';
 import { DocClient } from './DocClient';
 
 /**
@@ -142,8 +143,8 @@ export class GristClient {
   /**
    * Returns a DocClient for interacting with a specific Grist document.
    */
-  doc(docId: string): DocClient {
-    return new DocClient(this.transport, docId, {
+  doc<TTables extends object = DefaultGristTables>(docId: string): DocClient<TTables> {
+    return new DocClient<TTables>(this.transport, docId, {
       tables: this.raw.tables,
       columns: this.raw.columns,
       records: this.raw.records,
@@ -158,16 +159,16 @@ export class GristClient {
    *
    * Automatically extracts docId and team server URL (if present).
    */
-  static fromDocUrl(
+  static fromDocUrl<TTables extends object = DefaultGristTables>(
     url: string,
     config?: Omit<GristClientConfig, 'serverUrl'> & { serverUrl?: string }
-  ): DocClient {
+  ): DocClient<TTables> {
     const { docId, serverUrl } = parseDocUrl(url);
     const resolvedServerUrl = config?.serverUrl ?? serverUrl;
     const client = new GristClient({
       ...config,
       serverUrl: resolvedServerUrl,
     });
-    return client.doc(docId);
+    return client.doc<TTables>(docId);
   }
 }

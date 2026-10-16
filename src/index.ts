@@ -1,4 +1,4 @@
-export const version = '0.1.0';
+export const version = '0.2.0';
 
 // High-level client classes and helpers
 export { GristClient, parseDocUrl } from './client/GristClient';
@@ -88,6 +88,9 @@ export type {
   CreateWebhookPayload,
   UpdateWebhookPayload,
 } from './types/rest';
+
+// Schema registry for module augmentation & typed documents
+export type { RegisterGristTables, DefaultGristTables } from './types/schema';
 
 // CLI and Typegen utilities
 export {

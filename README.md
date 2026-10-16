@@ -489,20 +489,28 @@ Now you can regenerate types anytime your Grist schema changes:
 pnpm run typegen
 ```
 
-### Using Generated Types
+### Using Generated Types (Zero Generic Brackets!)
+
+The generated `grist.d.ts` automatically registers your tables globally in the SDK via TypeScript module augmentation. You get **100% type safety and table name autocomplete without writing ANY generic brackets**:
 
 ```typescript
 import { GristClient } from 'grist-api-sdk';
-import type { GristTables } from './types/grist';
 
 const grist = new GristClient();
-const doc = grist.doc('doc123');
+const doc = grist.doc('doc123'); // or GristClient.fromDocUrl(...)
 
-// Products table has full autocomplete for all columns based on your live schema!
-const products = doc.table<GristTables['Products']>('Products');
+// Table name has autocomplete ('Products' | 'Orders' | ...)
+// and row type is automatically inferred — ZERO generic brackets needed!
+const products = doc.table('Products');
 
-const item = await products.records.get(1);
-console.log(item.Title, item.Price, item.InStock);
+const items = await products.records.list();
+// items is automatically typed as:
+// Array<ProductsRow & { id: number }>
+console.log(items[0].Title, items[0].Price, items[0].InStock);
+
+// You can also pass the schema explicitly to a specific document if preferred:
+import type { GristTables } from './types/grist';
+const customDoc = grist.doc<GristTables>('doc123');
 ```
 
 ### Column Type Mapping Matrix

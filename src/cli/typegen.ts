@@ -137,6 +137,12 @@ export function generateTypeScriptDeclarations(schema: TypegenDocSchema): string
   }
   lines.push('}');
   lines.push('');
+  lines.push("declare module 'grist-api-sdk' {");
+  lines.push('  interface RegisterGristTables {');
+  lines.push('    tables: GristTables;');
+  lines.push('  }');
+  lines.push('}');
+  lines.push('');
 
   return lines.join('\n');
 }
