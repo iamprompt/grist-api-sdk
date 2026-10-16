@@ -49,6 +49,7 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "packageManager": "pnpm@12.11.2",
   "keywords": [
     "grist",
     "sdk",
