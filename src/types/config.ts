@@ -47,7 +47,10 @@ export const DEFAULT_RETRY_CONFIG: ResolvedRetryConfig = {
 export function resolveConfig(config?: GristClientConfig): ResolvedGristClientConfig {
   const env = typeof process !== 'undefined' && process.env ? process.env : {};
 
-  const apiKey = config?.apiKey ?? env.GRIST_API_KEY;
+  const rawApiKey = config?.apiKey ?? env.GRIST_API_KEY;
+  const apiKey = rawApiKey
+    ? rawApiKey.trim().replace(/^Bearer\s+/i, '').replace(/^["']|["']$/g, '').trim()
+    : undefined;
   const rawServerUrl = config?.serverUrl ?? env.GRIST_SERVER ?? DEFAULT_SERVER_URL;
   // Normalize server URL: remove trailing slashes and redundant trailing /api
   const serverUrl = rawServerUrl.replace(/\/+$/, '').replace(/\/api$/, '');

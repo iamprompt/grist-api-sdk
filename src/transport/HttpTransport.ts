@@ -102,7 +102,11 @@ export class HttpTransport {
 
     // 3. Authorization Bearer token (if not already set)
     if (this.config.apiKey && !hasHeader(headers, 'Authorization')) {
-      const cleanKey = this.config.apiKey.replace(/^Bearer\s+/i, '');
+      const cleanKey = this.config.apiKey
+        .trim()
+        .replace(/^Bearer\s+/i, '')
+        .replace(/^["']|["']$/g, '')
+        .trim();
       headers['Authorization'] = `Bearer ${cleanKey}`;
     }
 
