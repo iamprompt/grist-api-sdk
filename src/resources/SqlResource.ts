@@ -1,3 +1,4 @@
+import { GristValidationError } from '../errors';
 import { HttpTransport } from '../transport/HttpTransport';
 
 function unwrapRecord<T>(record: unknown): T {
@@ -6,9 +7,13 @@ function unwrapRecord<T>(record: unknown): T {
   }
   const rec = record as Record<string, unknown>;
   if ('fields' in rec && rec.fields && typeof rec.fields === 'object') {
-    const fields = rec.fields as Record<string, unknown>;
-    if ('id' in rec && fields.id === undefined) {
-      return { id: rec.id, ...fields } as T;
+    const fields = { ...(rec.fields as Record<string, unknown>) };
+    delete fields['__proto__'];
+    delete fields['constructor'];
+    delete fields['prototype'];
+
+    if ('id' in rec && rec.id !== undefined) {
+      return { ...fields, id: rec.id } as T;
     }
     return fields as T;
   }
@@ -36,8 +41,11 @@ export class SqlResource {
     sql: string,
     params?: unknown[]
   ): Promise<T[]> {
+    if (!sql || typeof sql !== 'string' || !sql.trim()) {
+      throw new GristValidationError('SQL query must be a non-empty string');
+    }
     const encodedDocId = encodeURIComponent(docId);
-    const body: { sql: string; args?: unknown[] } = { sql };
+    const body: { sql: string; args?: unknown[] } = { sql: sql.trim() };
     if (params !== undefined) {
       body.args = params;
     }

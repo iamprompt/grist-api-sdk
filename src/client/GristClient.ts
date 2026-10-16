@@ -27,6 +27,17 @@ export function parseDocUrl(urlStr: string): { docId: string; serverUrl: string 
 
   const reservedWords = new Set(['o', 'doc', 'd', 'api']);
 
+  // Detect URI scheme (e.g. "https://", "javascript:", "file:")
+  const schemeMatch = trimmed.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
+  if (schemeMatch) {
+    const scheme = schemeMatch[1]!.toLowerCase();
+    if (scheme !== 'http' && scheme !== 'https') {
+      throw new GristValidationError(
+        `Invalid Grist document URL: protocol must be "http:" or "https:", got "${scheme}:"`
+      );
+    }
+  }
+
   // If no protocol is provided, check whether it's a bare docId or a URL without scheme
   if (!trimmed.includes('://')) {
     if (trimmed.includes('/')) {
@@ -46,6 +57,12 @@ export function parseDocUrl(urlStr: string): { docId: string; serverUrl: string 
     parsed = new URL(trimmed);
   } catch {
     throw new GristValidationError(`Invalid URL: ${urlStr}`);
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new GristValidationError(
+      `Invalid Grist document URL: protocol must be "http:" or "https:", got "${parsed.protocol}"`
+    );
   }
 
   const parts = parsed.pathname.split('/').filter(Boolean);

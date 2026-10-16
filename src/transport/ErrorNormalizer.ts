@@ -37,15 +37,17 @@ function parseRetryAfter(header?: string | null): number | undefined {
  * Extracts a concise human-readable message from an HTML error document.
  */
 function extractHtmlMessage(html: string): string | undefined {
-  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  // Bound HTML examination to first 16KB to prevent ReDoS or excessive memory/CPU consumption
+  const boundedHtml = html.length > 16384 ? html.slice(0, 16384) : html;
+  const titleMatch = boundedHtml.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
   if (titleMatch && titleMatch[1]?.trim()) {
     return titleMatch[1].trim();
   }
-  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  const h1Match = boundedHtml.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
   if (h1Match && h1Match[1]?.trim()) {
     return h1Match[1].trim();
   }
-  const stripped = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const stripped = boundedHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   if (stripped) {
     return stripped.length > 300 ? `${stripped.slice(0, 300)}...` : stripped;
   }

@@ -49,8 +49,14 @@ export interface RecordIterateOptions<T extends object = Record<string, unknown>
 export function flattenRecord<T extends object = Record<string, unknown>>(
   record: RecordEnvelope<T>
 ): RecordWithId<T> {
+  const fields = record.fields ? { ...record.fields } : ({} as T);
+  // Protect against prototype pollution from untrusted field keys
+  delete (fields as Record<string, unknown>)['__proto__'];
+  delete (fields as Record<string, unknown>)['constructor'];
+  delete (fields as Record<string, unknown>)['prototype'];
+
   return {
-    ...record.fields,
+    ...fields,
     id: record.id,
   } as RecordWithId<T>;
 }
@@ -217,7 +223,11 @@ export class RecordManager<T extends object = Record<string, unknown>> {
    * Auto-paginating async generator yielding records row by row across pages.
    */
   async *iterate(options?: RecordIterateOptions<T>): AsyncIterableIterator<RecordWithId<T>> {
-    const batchSize = Math.max(1, options?.batchSize ?? 100);
+    const rawBatchSize = Number(options?.batchSize);
+    const batchSize =
+      Number.isFinite(rawBatchSize)
+        ? Math.max(1, Math.floor(rawBatchSize))
+        : 100;
     let offset = 0;
 
     while (true) {

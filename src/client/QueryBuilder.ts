@@ -42,7 +42,11 @@ export class QueryBuilder<T extends object = Record<string, unknown>> {
    * Sets the maximum number of records to return.
    */
   limit(count: number): this {
-    this._limit = count;
+    if (typeof count === 'number' && Number.isFinite(count) && count >= 0) {
+      this._limit = Math.floor(count);
+    } else {
+      this._limit = undefined;
+    }
     return this;
   }
 
@@ -50,7 +54,11 @@ export class QueryBuilder<T extends object = Record<string, unknown>> {
    * Sets the number of records to skip before returning results.
    */
   offset(start: number): this {
-    this._offset = start;
+    if (typeof start === 'number' && Number.isFinite(start) && start >= 0) {
+      this._offset = Math.floor(start);
+    } else {
+      this._offset = undefined;
+    }
     return this;
   }
 
@@ -79,10 +87,19 @@ export class QueryBuilder<T extends object = Record<string, unknown>> {
    * Auto-paginating async generator yielding records row by row based on query parameters.
    */
   async *iterate(): AsyncIterableIterator<RecordWithId<T>> {
-    let offset = this._offset ?? 0;
-    const maxRecords = this._limit;
+    const rawOffset = this._offset;
+    let offset = typeof rawOffset === 'number' && Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
+    const maxRecords =
+      typeof this._limit === 'number' && Number.isFinite(this._limit) && this._limit >= 0
+        ? this._limit
+        : undefined;
+
+    if (maxRecords === 0) {
+      return;
+    }
+
     let yieldedCount = 0;
-    const batchSize = maxRecords !== undefined ? Math.min(100, maxRecords) : 100;
+    const batchSize = maxRecords !== undefined ? Math.min(100, Math.max(1, maxRecords)) : 100;
 
     while (true) {
       const currentBatchSize =

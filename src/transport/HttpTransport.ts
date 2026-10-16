@@ -1,4 +1,4 @@
-import { GristError, GristNetworkError, normalizeGristError } from '../errors';
+import { GristError, GristNetworkError, GristValidationError, normalizeGristError } from '../errors';
 import { GristClientConfig, ResolvedGristClientConfig, resolveConfig } from '../types/config';
 import { RetryHandler } from './RetryHandler';
 
@@ -34,13 +34,31 @@ export class HttpTransport {
 
   /**
    * Constructs the full URL, prepending /api if not present and appending query parameters.
+   * Enforces protocol safety and same-origin restrictions to prevent credential leaks and SSRF.
    */
   private buildUrl(path: string, params?: Record<string, unknown>): URL {
     let url: URL;
-    if (/^https?:\/\//i.test(path)) {
-      url = new URL(path);
+    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(path)) {
+      try {
+        url = new URL(path);
+      } catch {
+        throw new GristValidationError(`Invalid URL: "${path}"`);
+      }
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        throw new GristValidationError(
+          `Invalid protocol: "${url.protocol}". Only "http:" and "https:" requests are permitted.`
+        );
+      }
+      const baseOrigin = new URL(this.config.serverUrl).origin;
+      if (url.origin !== baseOrigin) {
+        throw new GristValidationError(
+          `Cross-origin request to "${url.origin}" is not permitted. Configured server origin is "${baseOrigin}".`
+        );
+      }
     } else {
-      const cleanPath = path.startsWith('/') ? path : `/${path}`;
+      const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+      // Clean multiple leading slashes to prevent protocol-relative path traversal (e.g. "//evil.com")
+      const cleanPath = normalizedPath.replace(/^\/+/, '/');
       const isApiPath = cleanPath === '/api' || cleanPath.startsWith('/api/');
       const apiPath = isApiPath ? cleanPath : `/api${cleanPath}`;
       url = new URL(`${this.config.serverUrl}${apiPath}`);

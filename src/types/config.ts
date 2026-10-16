@@ -1,3 +1,5 @@
+import { GristValidationError } from '../errors';
+
 export interface RetryConfig {
   maxRetries?: number;
   baseDelayMs?: number;
@@ -48,12 +50,46 @@ export function resolveConfig(config?: GristClientConfig): ResolvedGristClientCo
   const env = typeof process !== 'undefined' && process.env ? process.env : {};
 
   const rawApiKey = config?.apiKey ?? env.GRIST_API_KEY;
-  const apiKey = rawApiKey
-    ? rawApiKey.trim().replace(/^Bearer\s+/i, '').replace(/^["']|["']$/g, '').trim()
-    : undefined;
+  let apiKey: string | undefined;
+  if (rawApiKey) {
+    if (/[\r\n]/.test(rawApiKey)) {
+      throw new GristValidationError('Invalid API key: contains carriage return or newline characters');
+    }
+    const sanitized = rawApiKey.trim().replace(/^Bearer\s+/i, '').replace(/^["']|["']$/g, '').trim();
+    apiKey = sanitized || undefined;
+  }
+
   const rawServerUrl = config?.serverUrl ?? env.GRIST_SERVER ?? DEFAULT_SERVER_URL;
+  if (typeof rawServerUrl !== 'string' || !rawServerUrl.trim()) {
+    throw new GristValidationError('Invalid server URL: server URL must be a non-empty string');
+  }
+
+  let parsedServerUrl: URL;
+  try {
+    parsedServerUrl = new URL(rawServerUrl.trim());
+  } catch {
+    throw new GristValidationError(`Invalid server URL: "${rawServerUrl}" is not a valid URL`);
+  }
+
+  if (parsedServerUrl.protocol !== 'http:' && parsedServerUrl.protocol !== 'https:') {
+    throw new GristValidationError(
+      `Invalid server URL: protocol must be "http:" or "https:", got "${parsedServerUrl.protocol}"`
+    );
+  }
+
   // Normalize server URL: remove trailing slashes and redundant trailing /api
-  const serverUrl = rawServerUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+  const serverUrl = rawServerUrl.trim().replace(/\/+$/, '').replace(/\/api$/, '');
+
+  // Validate headers against CRLF injection
+  const headers: Record<string, string> = {};
+  if (config?.headers) {
+    for (const [k, v] of Object.entries(config.headers)) {
+      if (/[\r\n]/.test(k) || (typeof v === 'string' && /[\r\n]/.test(v))) {
+        throw new GristValidationError(`Invalid header: "${k}" contains carriage return or newline characters`);
+      }
+      headers[k] = String(v);
+    }
+  }
 
   let retry: ResolvedRetryConfig;
   if (config?.retry === false) {
@@ -93,7 +129,7 @@ export function resolveConfig(config?: GristClientConfig): ResolvedGristClientCo
     apiKey,
     serverUrl,
     fetch: defaultFetch,
-    headers: config?.headers ? { ...config.headers } : {},
+    headers,
     retry,
   };
 }

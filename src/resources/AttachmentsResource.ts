@@ -1,3 +1,4 @@
+import { GristValidationError } from '../errors';
 import { HttpTransport } from '../transport/HttpTransport';
 import { AttachmentMetadata, UploadFileInput } from '../types/rest';
 
@@ -20,8 +21,12 @@ export class AttachmentsResource {
     docId: string,
     file: UploadFileInput | UploadFileInput[]
   ): Promise<number[]> {
-    const encodedDocId = encodeURIComponent(docId);
     const files = Array.isArray(file) ? file : [file];
+    if (files.length === 0) {
+      return [];
+    }
+
+    const encodedDocId = encodeURIComponent(docId);
     const form = new FormData();
 
     for (const f of files) {
@@ -31,7 +36,9 @@ export class AttachmentsResource {
       } else {
         blob = new Blob([f.data as unknown as BlobPart], f.contentType ? { type: f.contentType } : undefined);
       }
-      form.append('upload', blob, f.filename);
+      // Sanitize filename to prevent path traversal
+      const safeFilename = f.filename.replace(/^.*[/\\]/, '').replace(/^\.+/, '') || 'attachment';
+      form.append('upload', blob, safeFilename);
     }
 
     const res = await this.transport.request<
@@ -66,8 +73,13 @@ export class AttachmentsResource {
    * @returns The raw attachment contents as an ArrayBuffer.
    */
   async download(docId: string, attachmentId: number): Promise<ArrayBuffer> {
+    if (typeof attachmentId !== 'number' || !Number.isFinite(attachmentId) || attachmentId <= 0) {
+      throw new GristValidationError(
+        `Invalid attachmentId: expected a positive integer, got ${attachmentId}`
+      );
+    }
     const encodedDocId = encodeURIComponent(docId);
-    const encodedAttachmentId = encodeURIComponent(String(attachmentId));
+    const encodedAttachmentId = encodeURIComponent(String(Math.floor(attachmentId)));
     const response = await this.transport.requestRaw(
       `/docs/${encodedDocId}/attachments/${encodedAttachmentId}/download`
     );
@@ -85,8 +97,13 @@ export class AttachmentsResource {
     docId: string,
     attachmentId: number
   ): Promise<AttachmentMetadata> {
+    if (typeof attachmentId !== 'number' || !Number.isFinite(attachmentId) || attachmentId <= 0) {
+      throw new GristValidationError(
+        `Invalid attachmentId: expected a positive integer, got ${attachmentId}`
+      );
+    }
     const encodedDocId = encodeURIComponent(docId);
-    const encodedAttachmentId = encodeURIComponent(String(attachmentId));
+    const encodedAttachmentId = encodeURIComponent(String(Math.floor(attachmentId)));
     return await this.transport.request<AttachmentMetadata>(
       `/docs/${encodedDocId}/attachments/${encodedAttachmentId}`
     );

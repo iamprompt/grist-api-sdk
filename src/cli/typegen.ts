@@ -86,7 +86,13 @@ export function formatPropertyKey(key: string): string {
   if (/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key)) {
     return key;
   }
-  return `'${key.replace(/\\/g, "\\\\").replace(/'/g, "\\\x27")}'`;
+  const escaped = key
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t');
+  return `'${escaped}'`;
 }
 
 /**
