@@ -33,6 +33,7 @@ A modern, type-safe, developer-friendly TypeScript/Node.js SDK for the [Grist RE
 - [Framework Integration Examples](#framework-integration-examples)
   - [Next.js App Router (Server Component)](#nextjs-app-router-server-component)
   - [Express / Fastify REST Endpoint](#express--fastify-rest-endpoint)
+- [Custom HTTP Clients & Adapters (Ky, Axios, Proxies)](#custom-http-clients--adapters-ky-axios-proxies)
 - [Error Handling & Automatic Retries](#error-handling--automatic-retries)
 - [Security & Best Practices](#security--best-practices)
 - [API Reference Summary](#api-reference-summary)
@@ -584,6 +585,142 @@ app.post('/api/inventory', async (req, res, next) => {
     next(error);
   }
 });
+```
+
+---
+
+## Custom HTTP Clients & Adapters (Ky, Axios, Proxies)
+
+The SDK relies on the standard **Web Fetch API** (`(input: string | URL | Request, init?: RequestInit) => Promise<Response>`), which allows you to swap out or wrap the HTTP client with your favorite library—such as **Ky**, **Axios**, or custom proxy dispatchers.
+
+### Using Ky
+
+[Ky](https://github.com/sindresorhus/ky) is a lightweight HTTP client built on standard Fetch. Because `ky` returns a `ResponsePromise` that resolves to a standard Web `Response`, it integrates with `GristClient` directly:
+
+```typescript
+import ky from 'ky';
+import { GristClient } from 'grist-api-sdk';
+
+// 1. Configure custom Ky instance (with timeouts, custom hooks, or logging)
+const customKy = ky.extend({
+  timeout: 10000,
+  hooks: {
+    beforeRequest: [
+      (request) => {
+        console.log(`[Ky] Outgoing request: ${request.method} ${request.url}`);
+      },
+    ],
+    afterResponse: [
+      (_request, _options, response) => {
+        console.log(`[Ky] Response received with status: ${response.status}`);
+        return response;
+      },
+    ],
+  },
+});
+
+// 2. Pass to GristClient via the fetch option
+const grist = new GristClient({
+  apiKey: process.env.GRIST_API_KEY,
+  serverUrl: process.env.GRIST_SERVER,
+  fetch: (input, init) => customKy(input as string, init),
+});
+
+const employees = await grist.doc('doc123').table('Employees').records.list();
+```
+
+---
+
+### Using Axios
+
+Because [Axios](https://axios-http.com/) returns an Axios-specific response object (`{ data, status, headers, config }`) instead of a Web `Response`, you can provide a lightweight adapter that converts the Axios response to a standard Web `Response`:
+
+```typescript
+import axios from 'axios';
+import { GristClient } from 'grist-api-sdk';
+
+// Create a Web Fetch-compatible adapter wrapping Axios
+const axiosFetchAdapter: typeof fetch = async (input, init) => {
+  const url = input.toString();
+
+  const axiosResponse = await axios({
+    url,
+    method: init?.method ?? 'GET',
+    headers: init?.headers as any,
+    data: init?.body,
+    signal: init?.signal as any,
+    // Ensure Axios doesn't throw on 4xx/5xx so Grist SDK's error normalizer can handle them
+    validateStatus: () => true,
+    // Use arraybuffer so both JSON and binary responses (attachments) work seamlessly
+    responseType: 'arraybuffer',
+  });
+
+  return new Response(axiosResponse.data, {
+    status: axiosResponse.status,
+    statusText: axiosResponse.statusText,
+    headers: new Headers(axiosResponse.headers as any),
+  });
+};
+
+// Pass to GristClient
+const grist = new GristClient({
+  apiKey: process.env.GRIST_API_KEY,
+  serverUrl: 'https://docs.getgrist.com',
+  fetch: axiosFetchAdapter,
+});
+
+const products = await grist.doc('doc123').table('Products').records.list();
+```
+
+---
+
+### Using Undici / Corporate Proxies
+
+If you are operating behind a corporate HTTP proxy or need custom connection pool settings in Node.js, you can use [Undici](https://undici.nodejs.org/):
+
+```typescript
+import { fetch as undiciFetch, ProxyAgent } from 'undici';
+import { GristClient } from 'grist-api-sdk';
+
+// Configure proxy agent
+const proxyAgent = new ProxyAgent('http://proxy.corporate.internal:8080');
+
+const grist = new GristClient({
+  apiKey: process.env.GRIST_API_KEY,
+  serverUrl: 'https://docs.getgrist.com',
+  fetch: (input, init) =>
+    undiciFetch(input, {
+      ...init,
+      dispatcher: proxyAgent,
+    } as any),
+});
+```
+
+---
+
+### Mocking for Unit Tests (Vitest / Jest)
+
+Easily mock requests in automated test suites without dispatching actual network calls:
+
+```typescript
+import { vi } from 'vitest';
+import { GristClient } from 'grist-api-sdk';
+
+const mockFetch = vi.fn().mockResolvedValue(
+  new Response(
+    JSON.stringify({ records: [{ id: 1, fields: { Name: 'Mocked Item' } }] }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } }
+  )
+);
+
+const grist = new GristClient({
+  apiKey: 'test-key',
+  fetch: mockFetch,
+});
+
+const items = await grist.doc('doc123').table('Items').records.list();
+expect(items[0].Name).toBe('Mocked Item');
+expect(mockFetch).toHaveBeenCalledTimes(1);
 ```
 
 ---

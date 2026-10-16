@@ -60,6 +60,59 @@ describe('HttpTransport', () => {
       expect(headers['X-Custom-Client']).toBe('unit-test');
     });
 
+    it('supports Ky-style custom fetch wrappers', async () => {
+      // Ky returns a Promise<Response> conforming to standard Web Fetch
+      const mockKyFetch = vi.fn().mockImplementation(async (input: string, init?: RequestInit) => {
+        return new Response(JSON.stringify([{ id: 1, name: 'Alice' }]), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      });
+
+      const transport = new HttpTransport({
+        apiKey: 'secret',
+        fetch: (input, init) => mockKyFetch(input as string, init),
+      });
+
+      const res = await transport.request<Array<{ id: number; name: string }>>('/test');
+      expect(res).toEqual([{ id: 1, name: 'Alice' }]);
+      expect(mockKyFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('supports Axios-style adapters converted to Web Response', async () => {
+      // Simulate an Axios-style client adapted to Web Fetch Response
+      const mockAxios = vi.fn().mockResolvedValue({
+        data: Buffer.from(JSON.stringify({ fromAxios: true })),
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/json' },
+      });
+
+      const axiosFetchAdapter: typeof fetch = async (input, init) => {
+        const res = await mockAxios({
+          url: input.toString(),
+          method: init?.method ?? 'GET',
+          headers: init?.headers,
+          data: init?.body,
+        });
+
+        return new Response(res.data, {
+          status: res.status,
+          statusText: res.statusText,
+          headers: new Headers(res.headers),
+        });
+      };
+
+      const transport = new HttpTransport({
+        apiKey: 'secret',
+        fetch: axiosFetchAdapter,
+      });
+
+      const result = await transport.request<{ fromAxios: boolean }>('/test');
+      expect(result).toEqual({ fromAxios: true });
+      expect(mockAxios).toHaveBeenCalledTimes(1);
+    });
+
     it('resolves default serverUrl to https://docs.getgrist.com', () => {
       delete process.env.GRIST_SERVER;
       delete process.env.GRIST_API_KEY;
