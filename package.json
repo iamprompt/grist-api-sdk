@@ -48,7 +48,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "pnpm run test && pnpm run typecheck && pnpm run build"
+    "prepublishOnly": "pnpm run build && pnpm run typecheck && pnpm run test"
   },
   "engines": {
     "node": ">=18.0.0"

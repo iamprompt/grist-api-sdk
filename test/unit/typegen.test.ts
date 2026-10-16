@@ -11,7 +11,7 @@ import {
 } from "../../src/cli/typegen";
 import { runCli } from "../../src/cli/index";
 import { GristClient } from "../../src/client/GristClient";
-import { spawnSync } from "node:child_process";
+import { spawnSync, execSync } from "node:child_process";
 
 describe("Typegen Generator", () => {
   it("maps Grist column types to TypeScript types correctly", () => {
@@ -285,10 +285,24 @@ describe("Typegen Generator", () => {
 
     it("runs bin/grist-sdk.js executable binary via node", () => {
       const binPath = path.resolve(__dirname, "../../bin/grist-sdk.js");
-      const result = spawnSync("node", [binPath, "--help"], {
+      const result = spawnSync(process.execPath, [binPath, "--help"], {
         encoding: "utf-8",
-        env: { ...process.env, PATH: `/usr/local/bin:${process.env.PATH}` },
+        env: process.env,
       });
+      if (result.status !== 0) {
+        // If dist hasn't been built yet in an isolated test run, build it and re-run
+        execSync("pnpm run build", {
+          cwd: path.resolve(__dirname, "../.."),
+          stdio: "ignore",
+        });
+        const retryResult = spawnSync(process.execPath, [binPath, "--help"], {
+          encoding: "utf-8",
+          env: process.env,
+        });
+        expect(retryResult.status).toBe(0);
+        expect(retryResult.stdout).toContain("Usage: grist-sdk [typegen]");
+        return;
+      }
       expect(result.status).toBe(0);
       expect(result.stdout).toContain("Usage: grist-sdk [typegen]");
     });
