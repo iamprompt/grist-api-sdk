@@ -62,7 +62,7 @@ describe('HttpTransport', () => {
 
     it('supports Ky-style custom fetch wrappers', async () => {
       // Ky returns a Promise<Response> conforming to standard Web Fetch
-      const mockKyFetch = vi.fn().mockImplementation(async (input: string, init?: RequestInit) => {
+      const mockKyFetch = vi.fn().mockImplementation(async (_input: string, _init?: RequestInit) => {
         return new Response(JSON.stringify([{ id: 1, name: 'Alice' }]), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
