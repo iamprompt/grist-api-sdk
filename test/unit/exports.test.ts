@@ -71,7 +71,7 @@ describe('Public API Exports', () => {
     expect(GristSDK.runCli).toBeDefined();
 
     // Version
-    expect(GristSDK.version).toBe('0.2.1');
+    expect(GristSDK.version).toBe('0.2.2');
 
     // Default export
     expect(GristClientDefault).toBe(GristSDK.GristClient);
