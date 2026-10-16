@@ -1,0 +1,211 @@
+# Grist API SDK for TypeScript
+
+> Modern, zero-runtime-dependency TypeScript SDK for Grist relational spreadsheet databases.
+
+## Overview & Architecture
+
+`grist-api-sdk` provides both a high-level fluent interface and low-level 1:1 REST resource clients.
+
+Mental model:
+- `GristClient`: Root client managing HTTP transport, authentication, and exponential backoff retry.
+- `DocClient`: Scoped to a single document (`client.doc(docId)` or `GristClient.fromDocUrl(url)`).
+- `TableClient`: Scoped to a specific table (`doc.table(tableId)`).
+- `RecordManager`: High-level CRUD, query builder, pagination, and batch upsert (`table.records`).
+- `client.raw`: Low-level 1:1 access to Grist REST endpoints (`orgs`, `workspaces`, `docs`, `tables`, `columns`, `records`, `attachments`, `webhooks`, `sql`).
+
+## Installation
+
+```bash
+pnpm add grist-api-sdk
+# or: npm install grist-api-sdk
+```
+
+Requirements: Node.js >= 18.0.0, Bun, Deno, Cloudflare Workers, or modern browsers. Zero runtime HTTP dependencies (uses standard Web Fetch API).
+
+## Authentication & Initialization
+
+```typescript
+import { GristClient } from 'grist-api-sdk';
+
+// Ambient environment variables (GRIST_API_KEY, GRIST_SERVER) are auto-detected:
+const grist = new GristClient();
+
+// Explicit configuration:
+const grist = new GristClient({
+  apiKey: process.env.GRIST_API_KEY,
+  serverUrl: 'https://grist.example.com', // defaults to https://docs.getgrist.com
+  timeoutMs: 15000,
+  retry: {
+    maxRetries: 3,
+    initialDelayMs: 500,
+  },
+});
+
+// Or initialize directly from a document URL:
+const doc = GristClient.fromDocUrl('https://docs.getgrist.com/docId123/My-Document');
+```
+
+## Type Generation & Zero-Bracket Type Safety
+
+Run typegen to introspect the live schema and generate declarations:
+```bash
+npx -p grist-api-sdk grist-sdk typegen --doc <DOC_ID_OR_URL> --out src/types/grist.d.ts
+```
+
+The generated file automatically augments `grist-api-sdk`. Table names autocomplete and row types are inferred with **zero generic brackets**:
+
+```typescript
+import { GristClient } from 'grist-api-sdk';
+import './types/grist.d.ts'; // Loads the automatic module augmentation
+
+const doc = grist.doc('doc123');
+
+// Inferred as TableClient<TasksRow> automatically:
+const tasks = doc.table('Tasks');
+
+// rows is typed as Array<TasksRow & { id: number }>:
+const rows = await tasks.records.list();
+```
+
+To explicitly type without module augmentation:
+```typescript
+import type { GristTables } from './types/grist';
+const doc = grist.doc<GristTables>('doc123');
+const tasks = doc.table('Tasks');
+```
+
+## Common Operations
+
+### 1. Querying & Filtering
+```typescript
+// Simple list
+const active = await tasks.records.list({
+  filter: { Done: [false] },
+  sort: '-Priority,DueDate',
+  limit: 50,
+});
+
+// Fluent Query Builder
+const pendingTasks = await tasks.records
+  .query()
+  .where({ Status: ['Pending', 'In Progress'] })
+  .sort('DueDate', '-Priority')
+  .limit(20)
+  .execute();
+```
+
+### 2. Streaming & Pagination
+**CRITICAL**: Grist REST API does NOT support an `offset` query parameter on `/records`. Never paginate by manually incrementing `offset`. Use `iterate()`:
+```typescript
+// Streams table row-by-row with automatic internal batch pagination
+for await (const task of tasks.records.iterate({ batchSize: 100 })) {
+  console.log(task.id, task.Title);
+}
+
+// Or with query builder:
+for await (const row of tasks.records.query().where({ Done: [false] }).iterate()) {
+  console.log(row.Title);
+}
+```
+
+### 3. Record CRUD
+```typescript
+// Single create (returns created record with generated id)
+const created = await tasks.records.create({ Title: 'Ship Feature', Done: false });
+
+// Batch create (returns array of created records)
+const createdList = await tasks.records.create([
+  { Title: 'Task 1', Done: false },
+  { Title: 'Task 2', Done: false },
+]);
+
+// Get single record
+const task = await tasks.records.get(1);
+
+// Single update
+await tasks.records.update(1, { Done: true });
+
+// Batch update
+await tasks.records.update([
+  { id: 1, fields: { Done: true } },
+  { id: 2, fields: { Done: false } },
+]);
+
+// Single or batch delete (empty array is a safe no-op)
+await tasks.records.delete(1);
+await tasks.records.delete([1, 2, 3]);
+```
+
+### 4. Batch Upserting (Atomic Sync)
+```typescript
+// Upsert matches existing rows by keyCols; inserts if missing, updates if found.
+// Empty array is a safe no-op.
+await tasks.records.upsert(
+  [
+    { SKU: 'PROD-001', Title: 'Product A', Price: 29.99 },
+    { SKU: 'PROD-002', Title: 'Product B', Price: 49.99 },
+  ],
+  {
+    keyCols: ['SKU'],
+    onMany: 'first', // 'first' | 'none' | 'all'
+  }
+);
+```
+
+### 5. Direct SQLite Queries
+```typescript
+interface SalesSummary {
+  Category: string;
+  TotalRevenue: number;
+}
+
+const report = await doc.sql<SalesSummary>(
+  `SELECT Category, SUM(Price * Quantity) AS TotalRevenue
+   FROM Orders
+   WHERE OrderDate >= ?
+   GROUP BY Category`,
+  ['2026-01-01']
+);
+```
+
+### 6. File Attachments
+```typescript
+// Upload
+const [attachmentId] = await doc.attachments.upload({
+  filename: 'receipt.pdf',
+  data: fileUint8Array, // Uint8Array or Blob
+  contentType: 'application/pdf',
+});
+
+// Link attachment to record (Attachments columns store number[] of attachment IDs)
+await doc.table('Expenses').records.create({
+  Title: 'Office Supplies',
+  Receipts: [attachmentId],
+});
+
+// Download
+const buffer = await doc.attachments.download(attachmentId); // returns ArrayBuffer
+const metadata = await doc.attachments.getMetadata(attachmentId);
+```
+
+### 7. Custom HTTP Clients (Axios, Ky, Undici)
+Pass Axios instance directly (1-line auto-detection) or wrap Ky:
+```typescript
+import axios from 'axios';
+import ky from 'ky';
+import { GristClient, createKyFetch } from 'grist-api-sdk';
+
+// Axios: 1 line
+const gristAxios = new GristClient({ fetch: axios });
+
+// Ky: 1 line
+const gristKy = new GristClient({ fetch: createKyFetch(ky) });
+```
+
+## Critical Rules & Anti-Patterns for AI Coding Agents
+
+1. **NEVER pass `offset` to `/records`**: The Grist REST API ignores `offset`. Always use `table.records.iterate()` or filter by IDs to stream large tables.
+2. **Flattened Records**: By default, `records.list()`, `records.get()`, and `records.create()` return flattened objects `{ id, ...fields }`. Do NOT look for `record.fields.Title` unless `{ raw: true }` is explicitly passed.
+3. **Empty Arrays are Safe**: `records.upsert([])` and `records.delete([])` are guaranteed safe no-ops and make zero network requests. Do not write manual `if (items.length === 0)` guards.
+4. **URL Encoding**: All table IDs and column names with spaces (e.g. `'Order Details'`, `'Unit Price'`) are automatically URI-encoded by the SDK.
+5. **Dates & Timestamps**: In Grist, `Date` columns can be ISO strings or timestamps; `DateTime` columns are unix timestamps in seconds.

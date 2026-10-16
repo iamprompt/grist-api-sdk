@@ -36,7 +36,8 @@
     "dist",
     "bin",
     "LICENSE",
-    "README.md"
+    "README.md",
+    "llms.txt"
   ],
   "publishConfig": {
     "access": "public",

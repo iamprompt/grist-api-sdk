@@ -782,6 +782,22 @@ const grist = new GristClient({
 
 ---
 
+## AI Coding Assistants (`llms.txt`, Cursor, Claude Code)
+
+This package follows the [`llms.txt`](llms.txt) standard for AI coding agents. If you use **Cursor**, **Claude Code**, **Copilot**, or **Antigravity**, add this snippet to your project's `.cursorrules`, `CLAUDE.md`, or agent prompt:
+
+```markdown
+When integrating with Grist using `grist-api-sdk`:
+1. Generate schema types: `npx -p grist-api-sdk grist-sdk typegen --doc <DOC_ID_OR_URL> --out src/types/grist.d.ts`
+2. With `grist.d.ts` present, call `doc.table('TableName')` with ZERO generic brackets — table names and row types are inferred automatically via module augmentation.
+3. NEVER pass `offset` to `records.list()` (the Grist REST API ignores `offset`). Use `table.records.iterate()` or the query builder to stream rows.
+4. Records are returned flattened: `{ id: number, ...fields }`. Do not access `record.fields.Prop` unless `{ raw: true }` was passed.
+5. Batch operations (`records.upsert([])` and `records.delete([])`) with empty arrays are safe no-ops and make zero network calls.
+6. For full machine-readable guidance, see `llms.txt` in the package root.
+```
+
+---
+
 ## Security & Best Practices
 
 - **Never Commit `.env`**: Always add `.env` and `.env*.local` to your `.gitignore`.
