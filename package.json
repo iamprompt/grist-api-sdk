@@ -29,8 +29,8 @@
     }
   },
   "bin": {
-    "grist-sdk": "./bin/grist-sdk.js",
-    "grist-typegen": "./bin/grist-sdk.js"
+    "grist-sdk": "bin/grist-sdk.js",
+    "grist-typegen": "bin/grist-sdk.js"
   },
   "files": [
     "dist",
