@@ -1,6 +1,6 @@
 {
   "name": "grist-api-sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A modern, type-safe TypeScript SDK for the Grist REST API",
   "author": "Supakarn Laorattanakul <wearedprompt@gmail.com>",
   "license": "MIT",

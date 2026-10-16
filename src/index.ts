@@ -1,4 +1,4 @@
-export const version = '0.2.0';
+export const version = '0.2.1';
 
 // High-level client classes and helpers
 export { GristClient, parseDocUrl } from './client/GristClient';
