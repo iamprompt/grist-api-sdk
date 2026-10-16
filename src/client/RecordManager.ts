@@ -223,27 +223,43 @@ export class RecordManager<T extends object = Record<string, unknown>> {
    * Auto-paginating async generator yielding records row by row across pages.
    */
   async *iterate(options?: RecordIterateOptions<T>): AsyncIterableIterator<RecordWithId<T>> {
-    const rawBatchSize = Number(options?.batchSize);
+    const rawBatchSize = options?.batchSize !== undefined ? Number(options.batchSize) : undefined;
     const batchSize =
-      Number.isFinite(rawBatchSize)
+      rawBatchSize !== undefined && Number.isFinite(rawBatchSize)
         ? Math.max(1, Math.floor(rawBatchSize))
-        : 100;
+        : options?.batchSize !== undefined
+          ? 100
+          : undefined;
     let offset = 0;
+    const seenIds = new Set<number>();
 
     while (true) {
       const records = await this.recordsResource.list<T>(this.docId, this.tableId, {
         limit: batchSize,
-        offset,
+        offset: batchSize !== undefined ? offset : undefined,
         filter: options?.filter as Record<string, unknown[]> | string | undefined,
         sort: Array.isArray(options?.sort) ? options.sort.map(String) : options?.sort,
         hidden: options?.hidden,
       });
 
+      if (records.length === 0) {
+        break;
+      }
+
+      // If the server ignored offset and returned the same first record, break to avoid infinite loop
+      if (seenIds.has(records[0]!.id)) {
+        break;
+      }
+
       for (const rec of records) {
+        if (seenIds.has(rec.id)) {
+          continue;
+        }
+        seenIds.add(rec.id);
         yield flattenRecord(rec);
       }
 
-      if (records.length < batchSize) {
+      if (batchSize === undefined || records.length < batchSize) {
         break;
       }
 

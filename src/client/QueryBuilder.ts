@@ -100,6 +100,7 @@ export class QueryBuilder<T extends object = Record<string, unknown>> {
 
     let yieldedCount = 0;
     const batchSize = maxRecords !== undefined ? Math.min(100, Math.max(1, maxRecords)) : 100;
+    const seenIds = new Set<number>();
 
     while (true) {
       const currentBatchSize =
@@ -119,7 +120,20 @@ export class QueryBuilder<T extends object = Record<string, unknown>> {
         raw: false,
       })) as RecordWithId<T>[];
 
+      if (records.length === 0) {
+        break;
+      }
+
+      // If server ignores offset and returns the same first record, break
+      if (seenIds.has(records[0]!.id)) {
+        break;
+      }
+
       for (const rec of records) {
+        if (seenIds.has(rec.id)) {
+          continue;
+        }
+        seenIds.add(rec.id);
         yield rec;
         yieldedCount++;
         if (maxRecords !== undefined && yieldedCount >= maxRecords) {
