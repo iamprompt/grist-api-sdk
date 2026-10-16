@@ -2,6 +2,16 @@
   "name": "grist-api-sdk",
   "version": "0.1.0",
   "description": "A modern, type-safe TypeScript SDK for the Grist REST API",
+  "author": "Supakarn Laorattanakul <wearedprompt@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/iamprompt/grist-api-sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iamprompt/grist-api-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/iamprompt/grist-api-sdk/issues"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -18,34 +28,43 @@
       }
     }
   },
+  "bin": {
+    "grist-sdk": "./bin/grist-sdk.js",
+    "grist-typegen": "./bin/grist-sdk.js"
+  },
   "files": [
     "dist",
-    "bin"
+    "bin",
+    "LICENSE",
+    "README.md"
   ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "pnpm run test && pnpm run typecheck && pnpm run build"
   },
   "engines": {
     "node": ">=18.0.0"
   },
-  "license": "MIT",
   "keywords": [
     "grist",
     "sdk",
     "api",
-    "typescript"
+    "typescript",
+    "grist-api",
+    "client",
+    "typegen",
+    "database",
+    "spreadsheet",
+    "records"
   ],
   "devDependencies": {
     "@types/node": "^26.6.5",
     "tsup": "^9.0.0",
     "typescript": "^6.0.3",
     "vitest": "^5.0.4"
-  },
-  "bin": {
-    "grist-sdk": "./bin/grist-sdk.js",
-    "grist-typegen": "./bin/grist-sdk.js"
   }
 }
