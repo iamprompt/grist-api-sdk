@@ -37,13 +37,19 @@ describe('Public API Exports', () => {
     expect(GristSDK.GristNetworkError).toBeDefined();
     expect(GristSDK.normalizeGristError).toBeDefined();
 
-    // Transport and retry
+    // Transport, retry, and adapters
     expect(GristSDK.HttpTransport).toBeDefined();
     expect(GristSDK.RetryHandler).toBeDefined();
     expect(GristSDK.defaultSleep).toBeDefined();
     expect(GristSDK.resolveConfig).toBeDefined();
     expect(GristSDK.DEFAULT_SERVER_URL).toBeDefined();
     expect(GristSDK.DEFAULT_RETRY_CONFIG).toBeDefined();
+    expect(GristSDK.createAxiosFetch).toBeDefined();
+    expect(typeof GristSDK.createAxiosFetch).toBe('function');
+    expect(GristSDK.createKyFetch).toBeDefined();
+    expect(typeof GristSDK.createKyFetch).toBe('function');
+    expect(GristSDK.isAxiosInstance).toBeDefined();
+    expect(typeof GristSDK.isAxiosInstance).toBe('function');
 
     // Low-level REST Resources
     expect(GristSDK.OrgsResource).toBeDefined();

@@ -1,4 +1,5 @@
 import { GristValidationError } from '../errors';
+import { AxiosInstanceLike, createAxiosFetch, isAxiosInstance } from '../transport/adapters';
 
 export interface RetryConfig {
   maxRetries?: number;
@@ -9,7 +10,7 @@ export interface RetryConfig {
 export interface GristClientConfig {
   apiKey?: string;
   serverUrl?: string;
-  fetch?: typeof fetch;
+  fetch?: typeof fetch | AxiosInstanceLike | unknown;
   headers?: Record<string, string>;
   retry?: RetryConfig | boolean;
 }
@@ -119,11 +120,19 @@ export function resolveConfig(config?: GristClientConfig): ResolvedGristClientCo
     retry = { ...DEFAULT_RETRY_CONFIG };
   }
 
-  const defaultFetch: typeof fetch =
-    config?.fetch ??
-    (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function'
-      ? globalThis.fetch.bind(globalThis)
-      : (undefined as unknown as typeof fetch));
+  let defaultFetch: typeof fetch;
+  if (config?.fetch !== undefined) {
+    if (isAxiosInstance(config.fetch)) {
+      defaultFetch = createAxiosFetch(config.fetch);
+    } else {
+      defaultFetch = config.fetch as typeof fetch;
+    }
+  } else {
+    defaultFetch =
+      typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function'
+        ? globalThis.fetch.bind(globalThis)
+        : (undefined as unknown as typeof fetch);
+  }
 
   return {
     apiKey,

@@ -591,39 +591,35 @@ app.post('/api/inventory', async (req, res, next) => {
 
 ## Custom HTTP Clients & Adapters (Ky, Axios, Proxies)
 
-The SDK relies on the standard **Web Fetch API** (`(input: string | URL | Request, init?: RequestInit) => Promise<Response>`), which allows you to swap out or wrap the HTTP client with your favorite library—such as **Ky**, **Axios**, or custom proxy dispatchers.
+You can easily switch the underlying HTTP client to **Axios**, **Ky**, or custom proxy agents without writing boilerplate. The SDK includes built-in adapters (`createAxiosFetch`, `createKyFetch`) and **automatic client detection**.
 
-### Using Ky
+### 1. Using Axios (1-Line Integration)
 
-[Ky](https://github.com/sindresorhus/ky) is a lightweight HTTP client built on standard Fetch. Because `ky` returns a `ResponsePromise` that resolves to a standard Web `Response`, it integrates with `GristClient` directly:
+You can pass an `axios` instance directly into `fetch`—the SDK automatically detects Axios and adapts its requests, headers, and responses under the hood:
 
 ```typescript
-import ky from 'ky';
+import axios from 'axios';
 import { GristClient } from 'grist-api-sdk';
 
-// 1. Configure custom Ky instance (with timeouts, custom hooks, or logging)
-const customKy = ky.extend({
-  timeout: 10000,
-  hooks: {
-    beforeRequest: [
-      (request) => {
-        console.log(`[Ky] Outgoing request: ${request.method} ${request.url}`);
-      },
-    ],
-    afterResponse: [
-      (_request, _options, response) => {
-        console.log(`[Ky] Response received with status: ${response.status}`);
-        return response;
-      },
-    ],
-  },
-});
-
-// 2. Pass to GristClient via the fetch option
+// Option A: Direct pass (auto-detected!)
 const grist = new GristClient({
   apiKey: process.env.GRIST_API_KEY,
   serverUrl: process.env.GRIST_SERVER,
-  fetch: (input, init) => customKy(input as string, init),
+  fetch: axios,
+});
+
+// Option B: Using the built-in createAxiosFetch helper (great for customized Axios instances)
+import { createAxiosFetch } from 'grist-api-sdk';
+
+const myAxios = axios.create({
+  timeout: 15000,
+  // Corporate proxy, custom certs, or interceptors:
+  proxy: { host: 'proxy.internal', port: 8080 },
+});
+
+const gristWithProxy = new GristClient({
+  apiKey: process.env.GRIST_API_KEY,
+  fetch: createAxiosFetch(myAxios),
 });
 
 const employees = await grist.doc('doc123').table('Employees').records.list();
@@ -631,45 +627,34 @@ const employees = await grist.doc('doc123').table('Employees').records.list();
 
 ---
 
-### Using Axios
+### 2. Using Ky (1-Line Integration)
 
-Because [Axios](https://axios-http.com/) returns an Axios-specific response object (`{ data, status, headers, config }`) instead of a Web `Response`, you can provide a lightweight adapter that converts the Axios response to a standard Web `Response`:
+Because [Ky](https://github.com/sindresorhus/ky) is built on standard Web Fetch, you can pass `ky` directly or use the `createKyFetch` helper:
 
 ```typescript
-import axios from 'axios';
-import { GristClient } from 'grist-api-sdk';
+import ky from 'ky';
+import { GristClient, createKyFetch } from 'grist-api-sdk';
 
-// Create a Web Fetch-compatible adapter wrapping Axios
-const axiosFetchAdapter: typeof fetch = async (input, init) => {
-  const url = input.toString();
-
-  const axiosResponse = await axios({
-    url,
-    method: init?.method ?? 'GET',
-    headers: init?.headers as any,
-    data: init?.body,
-    signal: init?.signal as any,
-    // Ensure Axios doesn't throw on 4xx/5xx so Grist SDK's error normalizer can handle them
-    validateStatus: () => true,
-    // Use arraybuffer so both JSON and binary responses (attachments) work seamlessly
-    responseType: 'arraybuffer',
-  });
-
-  return new Response(axiosResponse.data, {
-    status: axiosResponse.status,
-    statusText: axiosResponse.statusText,
-    headers: new Headers(axiosResponse.headers as any),
-  });
-};
-
-// Pass to GristClient
+// Option A: Direct pass
 const grist = new GristClient({
   apiKey: process.env.GRIST_API_KEY,
-  serverUrl: 'https://docs.getgrist.com',
-  fetch: axiosFetchAdapter,
+  fetch: ky,
 });
 
-const products = await grist.doc('doc123').table('Products').records.list();
+// Option B: With customized Ky hooks, retry, or timeout
+const customKy = ky.extend({
+  timeout: 10000,
+  hooks: {
+    beforeRequest: [
+      (request) => console.log(`[Ky] ${request.method} ${request.url}`),
+    ],
+  },
+});
+
+const gristWithHooks = new GristClient({
+  apiKey: process.env.GRIST_API_KEY,
+  fetch: createKyFetch(customKy),
+});
 ```
 
 ---

@@ -31,6 +31,14 @@ export {
 export { HttpTransport } from './transport/HttpTransport';
 export { RetryHandler, defaultSleep } from './transport/RetryHandler';
 export {
+  createAxiosFetch,
+  createKyFetch,
+  isAxiosInstance,
+  type AxiosInstanceLike,
+  type AxiosResponseLike,
+  type KyInstanceLike,
+} from './transport/adapters';
+export {
   DEFAULT_SERVER_URL,
   DEFAULT_RETRY_CONFIG,
   resolveConfig,

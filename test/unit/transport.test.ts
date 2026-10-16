@@ -60,8 +60,7 @@ describe('HttpTransport', () => {
       expect(headers['X-Custom-Client']).toBe('unit-test');
     });
 
-    it('supports Ky-style custom fetch wrappers', async () => {
-      // Ky returns a Promise<Response> conforming to standard Web Fetch
+    it('supports createKyFetch helper and direct Ky instance', async () => {
       const mockKyFetch = vi.fn().mockImplementation(async (_input: string, _init?: RequestInit) => {
         return new Response(JSON.stringify([{ id: 1, name: 'Alice' }]), {
           status: 200,
@@ -69,9 +68,10 @@ describe('HttpTransport', () => {
         });
       });
 
+      const { createKyFetch } = await import('../../src/transport/adapters');
       const transport = new HttpTransport({
         apiKey: 'secret',
-        fetch: (input, init) => mockKyFetch(input as string, init),
+        fetch: createKyFetch(mockKyFetch),
       });
 
       const res = await transport.request<Array<{ id: number; name: string }>>('/test');
@@ -79,8 +79,7 @@ describe('HttpTransport', () => {
       expect(mockKyFetch).toHaveBeenCalledTimes(1);
     });
 
-    it('supports Axios-style adapters converted to Web Response', async () => {
-      // Simulate an Axios-style client adapted to Web Fetch Response
+    it('supports createAxiosFetch helper', async () => {
       const mockAxios = vi.fn().mockResolvedValue({
         data: Buffer.from(JSON.stringify({ fromAxios: true })),
         status: 200,
@@ -88,28 +87,35 @@ describe('HttpTransport', () => {
         headers: { 'content-type': 'application/json' },
       });
 
-      const axiosFetchAdapter: typeof fetch = async (input, init) => {
-        const res = await mockAxios({
-          url: input.toString(),
-          method: init?.method ?? 'GET',
-          headers: init?.headers,
-          data: init?.body,
-        });
-
-        return new Response(res.data, {
-          status: res.status,
-          statusText: res.statusText,
-          headers: new Headers(res.headers),
-        });
-      };
-
+      const { createAxiosFetch } = await import('../../src/transport/adapters');
       const transport = new HttpTransport({
         apiKey: 'secret',
-        fetch: axiosFetchAdapter,
+        fetch: createAxiosFetch(mockAxios),
       });
 
       const result = await transport.request<{ fromAxios: boolean }>('/test');
       expect(result).toEqual({ fromAxios: true });
+      expect(mockAxios).toHaveBeenCalledTimes(1);
+    });
+
+    it('automatically detects and wraps Axios instances passed directly to fetch', async () => {
+      const mockAxios = vi.fn().mockResolvedValue({
+        data: Buffer.from(JSON.stringify({ autoDetected: true })),
+        status: 200,
+        statusText: 'OK',
+        headers: { 'content-type': 'application/json' },
+      });
+      // Add typical Axios signature properties
+      (mockAxios as unknown as { defaults: object; interceptors: object }).defaults = {};
+      (mockAxios as unknown as { defaults: object; interceptors: object }).interceptors = {};
+
+      const transport = new HttpTransport({
+        apiKey: 'secret',
+        fetch: mockAxios, // Passing Axios directly without wrapper!
+      });
+
+      const result = await transport.request<{ autoDetected: boolean }>('/test');
+      expect(result).toEqual({ autoDetected: true });
       expect(mockAxios).toHaveBeenCalledTimes(1);
     });
 
